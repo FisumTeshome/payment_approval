@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum PaymentStatus {
+  PENDING
+  ADMIN_APPROVED
+  ADMIN_REJECTED
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+
+  // Relations
+  payments  PaymentRequest[] @relation("user_payments") // 1:N with PaymentRequest
+  auditLogs AuditLog[]
+}
+
+model PaymentRequest {
+  id        Int           @id @default(autoincrement())
+  amount    Decimal       @db.Decimal(12, 2)
+  status    PaymentStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // Relations
+  userId    Int
+  user      User       @relation("user_payments", fields: [userId], references: [id])
+  auditLogs AuditLog[] @relation("payment_audits")
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  actorId    Int?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  actorRole  Role?
+  action     String
+  targetType String
+  targetId   Int?
+  oldValue   Json?
+  newValue   Json?
+  createdAt  DateTime @default(now())
+
+  // Relation back to PaymentRequest
+  paymentId Int?
+  payment   PaymentRequest? @relation("payment_audits", fields: [paymentId], references: [id])
+}
